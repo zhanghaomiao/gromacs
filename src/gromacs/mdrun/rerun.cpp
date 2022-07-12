@@ -610,7 +610,7 @@ void gmx::LegacySimulator::do_rerun()
         {
             const bool bCalcEnerStep = true;
             energyOutput.addDataAtEnergyStep(
-                    doFreeEnergyPerturbation, bCalcEnerStep, t, mdatoms->tmass, enerd, ir->fepvals,
+                    doFreeEnergyPerturbation, bCalcEnerStep, t, mdatoms->tmass, enerd, nullptr, ir->fepvals,
                     ir->expandedvals, state->box,
                     PTCouplingArrays({ state->boxv, state->nosehoover_xi, state->nosehoover_vxi,
                                        state->nhpres_xi, state->nhpres_vxi }),

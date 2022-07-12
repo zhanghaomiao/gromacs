@@ -157,6 +157,13 @@ int LegacyMdrunOptions::updateFromCommandLine(int argc, char** argv, ArrayRef<co
     domdecOptions.numCells[YY] = roundToInt(realddxyz[YY]);
     domdecOptions.numCells[ZZ] = roundToInt(realddxyz[ZZ]);
 
+    /* FEP HREX*/
+    if(fep_hrex){
+      if(replExParams.exchangeInterval==0) gmx_fatal(FARGS,"-fephrex requires -replex");
+      if(replExParams.numExchanges!=0) gmx_fatal(FARGS,"-fephrex not compatible with -nex");
+    }
+    /* END FEP HREX */
+
     return 1;
 }
 

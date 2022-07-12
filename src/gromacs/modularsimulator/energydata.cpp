@@ -252,7 +252,7 @@ void EnergyData::doStep(Time time, bool isEnergyCalculationStep, bool isFreeEner
     }
     matrix nullMatrix = {};
     energyOutput_->addDataAtEnergyStep(
-            isFreeEnergyCalculationStep, isEnergyCalculationStep, time, mdAtoms_->mdatoms()->tmass, enerd_,
+            isFreeEnergyCalculationStep, isEnergyCalculationStep, time, mdAtoms_->mdatoms()->tmass, enerd_, nullptr,
             inputrec_->fepvals, inputrec_->expandedvals, statePropagatorData_->constPreviousBox(),
             PTCouplingArrays({ parrinelloRahmanBarostat_ ? parrinelloRahmanBarostat_->boxVelocities() : nullMatrix,
                                {},

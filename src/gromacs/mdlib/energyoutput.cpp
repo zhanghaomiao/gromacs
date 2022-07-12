@@ -657,6 +657,20 @@ static void print_lambda_vector(t_lambda* fep, int i, bool get_native_lambda, bo
     }
 }
 
+FILE* open_fepdhdl(const char* filename, const t_inputrec* ir)
+{
+    FILE *fp;
+    t_lambda* fep = ir -> fepvals;
+
+    fp = gmx_fio_fopen(filename, "w+");
+    fprintf(fp, "Time     U");
+    for (int i = 0; i < fep->n_lambda; i++)  {
+        fprintf(fp, "     dU_%d", i);
+    }
+    fprintf(fp, "      pV\n");
+    return fp;
+}
+
 FILE* open_dhdl(const char* filename, const t_inputrec* ir, const gmx_output_env_t* oenv)
 {
     FILE*       fp;
@@ -863,6 +877,7 @@ void EnergyOutput::addDataAtEnergyStep(bool                    bDoDHDL,
                                        double                  time,
                                        real                    tmass,
                                        const gmx_enerdata_t*   enerd,
+                                       real**                  hrexDeltaEnergies, /* fep hrex */
                                        const t_lambda*         fep,
                                        const t_expanded*       expand,
                                        const matrix            box,
@@ -1087,47 +1102,58 @@ void EnergyOutput::addDataAtEnergyStep(bool                    bDoDHDL,
             fprintf(fp_dhdl_, "%.4f", time);
             /* the current free energy state */
 
-            /* print the current state if we are doing expanded ensemble */
-            if (expand->elmcmove > elmcmoveNO)
-            {
-                fprintf(fp_dhdl_, " %4d", fep_state);
-            }
-            /* total energy (for if the temperature changes */
-
-            if (fep->edHdLPrintEnergy != edHdLPrintEnergyNO)
-            {
-                switch (fep->edHdLPrintEnergy)
-                {
-                    case edHdLPrintEnergyPOTENTIAL: store_energy = enerd->term[F_EPOT]; break;
-                    case edHdLPrintEnergyTOTAL:
-                    case edHdLPrintEnergyYES:
-                    default: store_energy = enerd->term[F_ETOT];
+            fprintf(fp_dhdl_, "  %#.8g", enerd->term[F_ETOT]);
+            if (true) {
+                for(int i = 0 ; i < 2; i++) {
+                    fprintf(fp_dhdl_, "   %#.8g", hrexDeltaEnergies[i][fep_state]);
                 }
-                fprintf(fp_dhdl_, " %#.8g", store_energy);
+                fprintf(fp_dhdl_, "   %#.8g", pv);
             }
 
-            if (fep->dhdl_derivatives == edhdlderivativesYES)
+            /* print the current state if we are doing expanded ensemble */
+            else
             {
-                for (int i = 0; i < efptNR; i++)
+                if (expand->elmcmove > elmcmoveNO)
                 {
-                    if (fep->separate_dvdl[i])
+                    fprintf(fp_dhdl_, " %4d", fep_state);
+                }
+                /* total energy (for if the temperature changes */
+
+                if (fep->edHdLPrintEnergy != edHdLPrintEnergyNO)
+                {
+                    switch (fep->edHdLPrintEnergy)
                     {
-                        /* assumes F_DVDL is first */
-                        fprintf(fp_dhdl_, " %#.8g", enerd->term[F_DVDL + i]);
+                        case edHdLPrintEnergyPOTENTIAL: store_energy = enerd->term[F_EPOT]; break;
+                        case edHdLPrintEnergyTOTAL:
+                        case edHdLPrintEnergyYES:
+                        default: store_energy = enerd->term[F_ETOT];
+                    }
+                    fprintf(fp_dhdl_, " %#.8g", store_energy);
+                }
+
+                if (fep->dhdl_derivatives == edhdlderivativesYES)
+                {
+                    for (int i = 0; i < efptNR; i++)
+                    {
+                        if (fep->separate_dvdl[i])
+                        {
+                            /* assumes F_DVDL is first */
+                            fprintf(fp_dhdl_, " %#.8g", enerd->term[F_DVDL + i]);
+                        }
                     }
                 }
-            }
-            for (int i = fep->lambda_start_n; i < fep->lambda_stop_n; i++)
-            {
-                fprintf(fp_dhdl_, " %#.8g", dE_[i]);
-            }
-            if (bDynBox_ && bDiagPres_ && (epc_ != epcNO) && foreignTerms.numLambdas() > 0
-                && (fep->init_lambda < 0))
-            {
-                fprintf(fp_dhdl_, " %#.8g", pv); /* PV term only needed when
-                                                         there are alternate state
-                                                         lambda and we're not in
-                                                         compatibility mode */
+                for (int i = fep->lambda_start_n; i < fep->lambda_stop_n; i++)
+                {
+                    fprintf(fp_dhdl_, " %#.8g", dE_[i]);
+                }
+                if (bDynBox_ && bDiagPres_ && (epc_ != epcNO) && foreignTerms.numLambdas() > 0
+                    && (fep->init_lambda < 0))
+                {
+                    fprintf(fp_dhdl_, " %#.8g", pv); /* PV term only needed when
+                                                             there are alternate state
+                                                             lambda and we're not in
+                                                             compatibility mode */
+                }
             }
             fprintf(fp_dhdl_, "\n");
             /* and the binary free energy output */

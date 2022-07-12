@@ -211,11 +211,11 @@ gmx_mdoutf_t init_mdoutf(FILE*                         fplog,
         {
             if (restartWithAppending)
             {
-                of->fp_dhdl = gmx_fio_fopen(opt2fn("-dhdl", nfile, fnm), filemode);
+                of->fp_dhdl = gmx_fio_fopen(opt2fn("-fepdhdl", nfile, fnm), filemode);
             }
             else
             {
-                of->fp_dhdl = open_dhdl(opt2fn("-dhdl", nfile, fnm), ir, oenv);
+                of->fp_dhdl = open_fepdhdl(opt2fn("-fepdhdl", nfile, fnm), ir);
             }
         }
 

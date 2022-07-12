@@ -70,6 +70,10 @@
 #include "gromacs/utility/pleasecite.h"
 #include "gromacs/utility/smalloc.h"
 
+/* FEP HREX */
+bool fep_hrex;
+/* END FEP HREX */
+
 //! Helps cut off probability values.
 constexpr int c_probabilityCutoff = 100;
 
@@ -588,7 +592,9 @@ static void exchange_rvecs(const gmx_multisim_t gmx_unused* ms, int gmx_unused b
     }
 }
 
-static void exchange_state(const gmx_multisim_t* ms, int b, t_state* state)
+/* FEP HREX */
+void exchange_state(const gmx_multisim_t* ms, int b, t_state* state)
+/* END FEP HREX */
 {
     /* When t_state changes, this code should be updated. */
     int ngtc, nnhpres;
@@ -612,7 +618,9 @@ static void exchange_state(const gmx_multisim_t* ms, int b, t_state* state)
     exchange_rvecs(ms, b, state->v.rvec_array(), state->natoms);
 }
 
-static void copy_state_serial(const t_state* src, t_state* dest)
+/* FEP HREX */
+void copy_state_serial(const t_state* src, t_state* dest)
+/* END FEP HREX */
 {
     if (dest != src)
     {
@@ -854,6 +862,7 @@ static void test_for_replica_exchange(FILE*                 fplog,
                                       const gmx_multisim_t* ms,
                                       struct gmx_repl_ex*   re,
                                       const gmx_enerdata_t* enerd,
+                                      real**                hrexDeltaEnergies, /* FEP HREX */
                                       real                  vol,
                                       int64_t               step,
                                       real                  time)
@@ -919,6 +928,11 @@ static void test_for_replica_exchange(FILE*                 fplog,
         }
         for (i = 0; i < re->nrepl; i++)
         {
+            /* FEP HREX */
+            if (fep_hrex)
+                re->de[i][re->repl] = hrexDeltaEnergies[i][re->repl];
+            else
+            /* END FEP HREX */
             re->de[i][re->repl] = enerd->foreignLambdaTerms.deltaH(re->q[ereLAMBDA][i]);
         }
     }
@@ -1251,6 +1265,7 @@ gmx_bool replica_exchange(FILE*                 fplog,
                           struct gmx_repl_ex*   re,
                           t_state*              state,
                           const gmx_enerdata_t* enerd,
+                          real**                hrexDeltaEnergies, /* FEP HREX */
                           t_state*              state_local,
                           int64_t               step,
                           real                  time)
@@ -1268,7 +1283,7 @@ gmx_bool replica_exchange(FILE*                 fplog,
     if (MASTER(cr))
     {
         replica_id = re->repl;
-        test_for_replica_exchange(fplog, ms, re, enerd, det(state_local->box), step, time);
+        test_for_replica_exchange(fplog, ms, re, enerd, hrexDeltaEnergies /* FEP HREX */, det(state_local->box), step, time);
         prepare_to_do_exchange(re, replica_id, &maxswap, &bThisReplicaExchanged);
     }
     /* Do intra-simulation broadcast so all processors belonging to

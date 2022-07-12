@@ -116,7 +116,8 @@ void do_force(FILE*                               log,
               double                              t,
               gmx_edsam*                          ed,
               int                                 legacyFlags,
-              const DDBalanceRegionHandler&       ddBalanceRegionHandler);
+              const DDBalanceRegionHandler&       ddBalanceRegionHandler,
+              bool                                checkPotentialValidity = true /* FEP HREX */);
 
 /* Communicate coordinates (if parallel).
  * Do neighbor searching (if necessary).

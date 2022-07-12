@@ -98,6 +98,7 @@ gmx_bool replica_exchange(FILE*                 fplog,
                           gmx_repl_ex_t         re,
                           t_state*              state,
                           const gmx_enerdata_t* enerd,
+                          real**                hrexDeltaEnergies, /* FEP HREX */
                           t_state*              state_local,
                           int64_t               step,
                           real                  time);
@@ -106,5 +107,10 @@ gmx_bool replica_exchange(FILE*                 fplog,
  *
  * Should only be called on the master ranks */
 void print_replica_exchange_statistics(FILE* fplog, gmx_repl_ex_t re);
+
+/* FEP HREX */
+extern void exchange_state(const gmx_multisim_t *ms, int b, t_state *state);
+extern void copy_state_serial(const t_state *src, t_state *dest);
+/* END FEP HREX */
 
 #endif

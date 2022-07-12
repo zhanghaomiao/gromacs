@@ -1149,7 +1149,8 @@ void do_force(FILE*                               fplog,
               double                              t,
               gmx_edsam*                          ed,
               int                                 legacyFlags,
-              const DDBalanceRegionHandler&       ddBalanceRegionHandler)
+              const DDBalanceRegionHandler&       ddBalanceRegionHandler,
+              bool                                checkPotentialValidity /* FEP HREX */)
 {
     auto force = forceView->forceWithPadding();
     GMX_ASSERT(force.unpaddedArrayRef().ssize() >= fr->natoms_force_constr,
@@ -2148,7 +2149,7 @@ void do_force(FILE*                               fplog,
         /* Compute the final potential energy terms */
         accumulatePotentialEnergies(enerd, lambda, inputrec->fepvals);
 
-        if (!EI_TPI(inputrec->eI))
+        if (checkPotentialValidity && /* FEP HREX */ !EI_TPI(inputrec->eI))
         {
             checkPotentialEnergyValidity(step, *enerd, *inputrec);
         }

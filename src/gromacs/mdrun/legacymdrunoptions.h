@@ -57,6 +57,10 @@
 
 #include "replicaexchange.h"
 
+/* FEP HREX */
+extern bool fep_hrex;
+/* END FEP HREX */
+
 namespace gmx
 {
 
@@ -127,7 +131,8 @@ public:
                                           { efTOP, "-mp", "membed", ffOPTRD },
                                           { efNDX, "-mn", "membed", ffOPTRD },
                                           { efXVG, "-if", "imdforces", ffOPTWR },
-                                          { efXVG, "-swap", "swapions", ffOPTWR } } };
+                                          { efXVG, "-swap", "swapions", ffOPTWR },
+                                          {efCSV, "-fepdhdl", "fepdhdl", ffOPTWR}} };
 
     //! Print a warning if any force is larger than this (in kJ/mol nm).
     real pforce = -1;
@@ -162,7 +167,7 @@ public:
 
     ImdOptions& imdOptions = mdrunOptions.imdOptions;
 
-    t_pargs pa[48] = {
+        t_pargs pa[49] = {
 
         { "-dd", FALSE, etRVEC, { &realddxyz }, "Domain decomposition grid, 0 is optimize" },
         { "-ddorder", FALSE, etENUM, { ddrank_opt_choices }, "DD rank order" },
@@ -333,6 +338,13 @@ public:
           etINT,
           { &replExParams.randomSeed },
           "Seed for replica exchange, -1 is generate a seed" },
+        /* FEP HREX */
+        { "-fephrex",
+          FALSE,
+          etBOOL,
+          { &fep_hrex },
+          "Enable FEP calculation with Hamiltonian replica exchange" },
+        /* END FEP  */
         { "-imdport", FALSE, etINT, { &imdOptions.port }, "HIDDENIMD listening port" },
         { "-imdwait",
           FALSE,

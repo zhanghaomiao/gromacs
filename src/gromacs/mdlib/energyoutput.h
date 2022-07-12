@@ -181,6 +181,7 @@ public:
                              double                  time,
                              real                    tmass,
                              const gmx_enerdata_t*   enerd,
+                             real**                  hrexDeltaEnergires,
                              const t_lambda*         fep,
                              const t_expanded*       expand,
                              const matrix            lastbox,
@@ -433,6 +434,7 @@ private:
 } // namespace gmx
 
 //! Open the dhdl file for output
+FILE* open_fepdhdl(const char *filename, const t_inputrec* ir);
 FILE* open_dhdl(const char* filename, const t_inputrec* ir, const gmx_output_env_t* oenv);
 
 #endif

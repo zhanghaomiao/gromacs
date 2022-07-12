@@ -151,6 +151,15 @@
 #include "replicaexchange.h"
 #include "shellfc.h"
 
+/* FEP HREX */
+//#include "unistd.h"
+//#include "gromacs/fileio/gmxfio.h"
+//#include "gromacs/math/units.h"
+#include "gromacs/domdec/domdec_internal.h"
+
+extern bool fep_hrex;
+/* END FEP HREX */
+
 using gmx::SimulationSignaller;
 
 void gmx::LegacySimulator::do_md()
@@ -298,7 +307,6 @@ void gmx::LegacySimulator::do_md()
     gmx::EnergyOutput energyOutput(mdoutf_get_fp_ene(outf), top_global, ir, pull_work,
                                    mdoutf_get_fp_dhdl(outf), false, startingBehavior,
                                    simulationsShareState, mdModulesNotifier);
-
     gstat = global_stat_init(ir);
 
     const auto& simulationWork     = runScheduleWork->simulationWork;
@@ -681,6 +689,53 @@ void gmx::LegacySimulator::do_md()
     wallcycle_start(wcycle, ewcRUN);
     print_start(fplog, cr, walltime_accounting, "mdrun");
 
+
+    /* FEP HREX */
+    int    repl              = -1;
+    int    nrepl             = -1;
+    int    hrexPartner       = -1;
+    int*   hrexIndexes       = nullptr;
+    real** hrexEnergies      = nullptr;
+    real** hrexDeltaEnergies = nullptr;
+
+    int            nlambda = enerd->foreignLambdaTerms.numLambdas();
+    gmx_enerdata_t hrex_enerd(enerd->grpp.nener, nlambda == 0 ? 0 : nlambda - 1);
+
+    if (ms != nullptr && fep_hrex)
+    {
+        repl = ms->simulationIndex_;
+        nrepl = ms->numSimulations_;
+
+        snew(hrexIndexes, nrepl);
+        for (i = 0; i < nrepl; i++)
+        {
+            hrexIndexes[i] = i;
+        }
+        snew(hrexEnergies, nrepl);
+        for (i = 0; i < nrepl; i++)
+        {
+            snew(hrexEnergies[i], nrepl);
+        }
+        snew(hrexDeltaEnergies, nrepl);
+        for (i = 0; i < nrepl; i++)
+        {
+            snew(hrexDeltaEnergies[i], nrepl);
+        }
+
+        if (MASTER(cr))
+        {
+            if (nrepl % 2 != 0)
+                gmx_fatal(FARGS, "Number of replicas must be even for -fephrex");
+            if (cr->nnodes > 1 && cr->dd->comm->dlbState != DlbState::offUser) {
+                gmx_fatal(FARGS, "Dynamic load balancing must be disabled (-dlb no) for -fephrex");
+            }
+
+        }
+    }
+
+    /* END FEP HREX */
+
+
     /***********************************************************
      *
      *             Loop over MD steps
@@ -760,8 +815,8 @@ void gmx::LegacySimulator::do_md()
                            && (!bFirstStep));
         }
 
-        bDoReplEx = (useReplicaExchange && (step > 0) && !bLastStep
-                     && do_per_step(step, replExParams.exchangeInterval));
+        bDoReplEx = ((useReplicaExchange && (step > 0) && !bLastStep
+                     && do_per_step(step, replExParams.exchangeInterval)) || bFirstStep);
 
         if (doSimulatedAnnealing)
         {
@@ -873,6 +928,83 @@ void gmx::LegacySimulator::do_md()
         }
         clear_mat(force_vir);
 
+        /* FEP HREX */
+        gmx_bool bHREX = bDoReplEx && fep_hrex;
+
+        if (bHREX) {
+            for (int ii = 0; ii < nrepl; ii++) {
+                for (int jj = 0; jj < nrepl; jj++) {
+                    hrexEnergies[ii][jj] = 0;
+                }
+            }
+
+            for (int cycle = 1; cycle < nrepl + 1; cycle++) {
+                if (DOMAINDECOMP(cr)) {
+                    dd_collect_state(cr->dd, state, state_global);
+                } else {
+                    copy_state_serial(state, state_global);
+                }
+
+                for (int irepl = 0; irepl < nrepl; irepl += 2) {
+                    int ipartner;
+                    if (irepl % 2 == cycle % 2) {
+                        ipartner = irepl - 1;
+                        if (ipartner < 0) ipartner = nrepl - 1;
+                        if (repl == irepl) hrexPartner = ipartner;
+                        if (repl == ipartner) hrexPartner = irepl;
+                    } else {
+                        ipartner = irepl + 1;
+                        if (ipartner >= nrepl) ipartner = 0;
+                        if (repl == irepl) hrexPartner = ipartner;
+                        if (repl == ipartner) hrexPartner = irepl;
+                    }
+                    int tmp = hrexIndexes[irepl];
+                    hrexIndexes[irepl] = hrexIndexes[ipartner];
+                    hrexIndexes[ipartner] = tmp;
+                }
+
+                if (MASTER(cr)) {
+                    // printf("step = %ld; cycle = %d; repl = %d, partner = %d, coor = %d, indexes =", step,
+                    //        cycle, repl, hrexPartner, hrexIndexes[repl]);
+                    // for (int jj = 0; jj < nrepl; jj++)
+                    //     printf("  %d", hrexIndexes[jj]);
+                    // printf("\n");
+                    exchange_state(ms, hrexPartner, state_global);
+                }
+
+                if (DOMAINDECOMP(cr)) {
+                    dd_partition_system(fplog, mdlog, step, cr, TRUE, 1,
+                                        state_global, *top_global, ir,
+                                        imdSession, pull_work,
+                                        state, &f, mdAtoms, &top, fr, vsite, constr,
+                                        nrnb, wcycle, FALSE);
+                } else {
+                    copy_state_serial(state_global, state);
+                }
+
+                if (cycle == nrepl)
+                    break;
+
+                do_force(fplog, cr, ms, ir, awh.get(), enforcedRotation, imdSession, pull_work, step,
+                         nrnb, wcycle, &top, state->box, state->x.arrayRefWithPadding(), &state->hist,
+                         &f.view(), force_vir, mdatoms, &hrex_enerd, state->lambda,
+                         fr, runScheduleWork, vsite, mu_tot, t, ed ? ed->getLegacyED() : nullptr,
+                         GMX_FORCE_STATECHANGED |
+                         GMX_FORCE_DYNAMICBOX |
+                         GMX_FORCE_ALLFORCES |
+                         GMX_FORCE_VIRIAL |
+                         GMX_FORCE_ENERGY |
+                         GMX_FORCE_DHDL |
+                         GMX_FORCE_NS,
+                         ddBalanceRegionHandler,
+                         false);
+
+                hrexEnergies[repl][hrexIndexes[repl]] = hrex_enerd.term[F_EPOT];
+            }
+            bNS = true;
+        }
+        /* END FEP HREX */
+
         checkpointHandler->decideIfCheckpointingThisStep(bNS, bFirstStep, bLastStep);
 
         /* Determine the energy and pressure:
@@ -947,6 +1079,30 @@ void gmx::LegacySimulator::do_md()
                      &f.view(), force_vir, mdatoms, enerd, state->lambda, fr, runScheduleWork,
                      vsite, mu_tot, t, ed ? ed->getLegacyED() : nullptr,
                      (bNS ? GMX_FORCE_NS : 0) | force_flags, ddBalanceRegionHandler);
+
+            /* FEP HREX */
+            if (bHREX) {
+                hrexEnergies[repl][repl] = enerd->term[F_EPOT];
+
+                if (DOMAINDECOMP(cr)) {
+                    MPI_Allreduce(MPI_IN_PLACE, hrexEnergies[repl], nrepl, GMX_MPI_REAL, MPI_SUM, cr->mpi_comm_mysim);
+                }
+
+                if (MASTER(cr)) {
+                    for (i = 0; i < nrepl; i++) {
+                        gmx_sum_sim(nrepl, hrexEnergies[i], ms);
+                    }
+
+                    for (i = 0; i < nrepl; i++) {
+                        if (std::isfinite(hrexEnergies[i][repl]) && std::isfinite(hrexEnergies[repl][repl]))
+                            hrexDeltaEnergies[i][repl] = hrexEnergies[i][repl] - hrexEnergies[repl][repl];
+                        else
+                            hrexDeltaEnergies[i][repl] = 1e10; // a value large enough
+                    }
+
+                }
+            }
+            /* END FEP HREX */
         }
 
         // VV integrators do not need the following velocity half step
@@ -1541,7 +1697,7 @@ void gmx::LegacySimulator::do_md()
             if (bCalcEner)
             {
                 energyOutput.addDataAtEnergyStep(
-                        bDoDHDL, bCalcEnerStep, t, mdatoms->tmass, enerd, ir->fepvals,
+                        bDoDHDL, bCalcEnerStep, t, mdatoms->tmass, enerd, hrexDeltaEnergies, ir->fepvals,
                         ir->expandedvals, lastbox,
                         PTCouplingArrays{ state->boxv, state->nosehoover_xi, state->nosehoover_vxi,
                                           state->nhpres_xi, state->nhpres_vxi },
@@ -1625,7 +1781,7 @@ void gmx::LegacySimulator::do_md()
         bExchanged = FALSE;
         if (bDoReplEx)
         {
-            bExchanged = replica_exchange(fplog, cr, ms, repl_ex, state_global, enerd, state, step, t);
+            bExchanged = replica_exchange(fplog, cr, ms, repl_ex, state_global, enerd, hrexDeltaEnergies /* FEP_HREX */, state, step, t);
         }
 
         if ((bExchanged || bNeedRepartition) && DOMAINDECOMP(cr))
