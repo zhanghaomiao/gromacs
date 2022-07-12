@@ -812,8 +812,8 @@ void gmx::LegacySimulator::do_md()
                            && (!bFirstStep));
         }
 
-        bDoReplEx = ((useReplicaExchange && (step > 0) && !bLastStep
-                     && do_per_step(step, replExParams.exchangeInterval)) || bFirstStep);
+        bDoReplEx = (useReplicaExchange && (step >= 0) && !bLastStep
+                     && do_per_step(step, replExParams.exchangeInterval));
 
         if (doSimulatedAnnealing)
         {
@@ -1082,7 +1082,7 @@ void gmx::LegacySimulator::do_md()
                 hrexEnergies[repl][repl] = enerd->term[F_EPOT];
 
                 if (DOMAINDECOMP(cr)) {
-                    // MPI_Allreduce(MPI_IN_PLACE, hrexEnergies[repl], nrepl, GMX_MPI_REAL, MPI_SUM, cr->mpi_comm_mysim);
+//                     MPI_Allreduce(MPI_IN_PLACE, hrexEnergies[repl], nrepl, GMX_MPI_REAL, MPI_SUM, cr->mpi_comm_mysim);
                     gmx_sum(nrepl, hrexEnergies[repl], cr);
                 }
 
@@ -1186,6 +1186,7 @@ void gmx::LegacySimulator::do_md()
                 }
                 wallcycle_start(wcycle, ewcUPDATE);
             }
+
             /* temperature scaling and pressure scaling to produce the extended variables at t+dt */
             if (!bInitStep)
             {
@@ -1253,7 +1254,6 @@ void gmx::LegacySimulator::do_md()
                 accumulateKineticLambdaComponents(enerd, state->lambda, *ir->fepvals);
             }
         }
-
         /* ########  END FIRST UPDATE STEP  ############## */
         /* ########  If doing VV, we now have v(dt) ###### */
         if (bDoExpanded)
@@ -1683,6 +1683,7 @@ void gmx::LegacySimulator::do_md()
         }
 
         /* Output stuff */
+
         if (MASTER(cr))
         {
             if (fplog && do_log && bDoExpanded)
@@ -1779,6 +1780,7 @@ void gmx::LegacySimulator::do_md()
         bExchanged = FALSE;
         if (bDoReplEx)
         {
+            fprintf(stderr, "adfasdfasdfasdf*****************");
             bExchanged = replica_exchange(fplog, cr, ms, repl_ex, state_global, enerd, hrexDeltaEnergies /* FEP_HREX */, state, step, t);
         }
 
