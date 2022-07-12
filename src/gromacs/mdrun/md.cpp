@@ -152,9 +152,6 @@
 #include "shellfc.h"
 
 /* FEP HREX */
-//#include "unistd.h"
-//#include "gromacs/fileio/gmxfio.h"
-//#include "gromacs/math/units.h"
 #include "gromacs/domdec/domdec_internal.h"
 
 extern bool fep_hrex;
@@ -1085,7 +1082,8 @@ void gmx::LegacySimulator::do_md()
                 hrexEnergies[repl][repl] = enerd->term[F_EPOT];
 
                 if (DOMAINDECOMP(cr)) {
-                    MPI_Allreduce(MPI_IN_PLACE, hrexEnergies[repl], nrepl, GMX_MPI_REAL, MPI_SUM, cr->mpi_comm_mysim);
+                    // MPI_Allreduce(MPI_IN_PLACE, hrexEnergies[repl], nrepl, GMX_MPI_REAL, MPI_SUM, cr->mpi_comm_mysim);
+                    gmx_sum(nrepl, hrexEnergies[repl], cr);
                 }
 
                 if (MASTER(cr)) {

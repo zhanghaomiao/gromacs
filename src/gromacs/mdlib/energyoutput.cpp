@@ -86,6 +86,7 @@
 #include "gromacs/utility/stringutil.h"
 
 #include "energydrifttracker.h"
+#include "gromacs/mdrun/legacymdrunoptions.h"
 
 //! Labels for energy file quantities
 //! \{
@@ -1103,8 +1104,8 @@ void EnergyOutput::addDataAtEnergyStep(bool                    bDoDHDL,
             /* the current free energy state */
 
             fprintf(fp_dhdl_, "  %#.8g", enerd->term[F_ETOT]);
-            if (true) {
-                for(int i = 0 ; i < 2; i++) {
+            if (fep_hrex) {
+                for(int i = 0 ; i < fep->n_lambda; i++) {
                     fprintf(fp_dhdl_, "   %#.8g", hrexDeltaEnergies[i][fep_state]);
                 }
                 fprintf(fp_dhdl_, "   %#.8g", pv);
