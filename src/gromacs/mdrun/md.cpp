@@ -1780,6 +1780,7 @@ void gmx::LegacySimulator::do_md()
         bExchanged = FALSE;
         if (bDoReplEx)
         {
+            fprintf(stderr, "adfasdfasdfasdf*****************");
             bExchanged = replica_exchange(fplog, cr, ms, repl_ex, state_global, enerd, hrexDeltaEnergies /* FEP_HREX */, state, step, t);
         }
 
