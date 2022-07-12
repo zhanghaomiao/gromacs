@@ -73,6 +73,8 @@
 #include "gromacs/utility/smalloc.h"
 #include "gromacs/utility/sysinfo.h"
 
+#include "gromacs/mdrun/legacymdrunoptions.h"
+
 struct gmx_mdoutf
 {
     t_fileio*                     fp_trn;
@@ -211,11 +213,25 @@ gmx_mdoutf_t init_mdoutf(FILE*                         fplog,
         {
             if (restartWithAppending)
             {
-                of->fp_dhdl = gmx_fio_fopen(opt2fn("-fepdhdl", nfile, fnm), filemode);
+                if (fep_hrex)
+                {
+                    of->fp_dhdl = gmx_fio_fopen(opt2fn("-fepdhdl", nfile, fnm), filemode);
+                }
+                else
+                {
+                    of->fp_dhdl = gmx_fio_fopen(opt2fn("-dhdl", nfile, fnm), filemode);
+                }
             }
             else
             {
-                of->fp_dhdl = open_fepdhdl(opt2fn("-fepdhdl", nfile, fnm), ir);
+                if(fep_hrex)
+                {
+                    of->fp_dhdl = open_fepdhdl(opt2fn("-fepdhdl", nfile, fnm), ir);
+                }
+                else
+                {
+                    of->fp_dhdl = open_dhdl(opt2fn("-dhdl", nfile, fnm), ir, oenv);
+                }
             }
         }
 

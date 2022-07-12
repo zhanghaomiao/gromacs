@@ -1004,7 +1004,6 @@ void EnergyOutput::addDataAtEnergyStep(bool                    bDoDHDL,
             }
         }
     }
-
     if (ekind)
     {
         for (int i = 0; (i < nTC_); i++)
@@ -1077,6 +1076,7 @@ void EnergyOutput::addDataAtEnergyStep(bool                    bDoDHDL,
 
     ebin_increase_count(1, ebin_, bSum);
 
+
     // BAR + thermodynamic integration values
     if ((fp_dhdl_ || dhc_) && bDoDHDL)
     {
@@ -1097,7 +1097,6 @@ void EnergyOutput::addDataAtEnergyStep(bool                    bDoDHDL,
                 dE_[i] += (temperatures_[i] / temperatures_[fep_state] - 1.0) * enerd->term[F_EKIN];
             }
         }
-
         if (fp_dhdl_)
         {
             fprintf(fp_dhdl_, "%.4f", time);
@@ -1177,7 +1176,6 @@ void EnergyOutput::addDataAtEnergyStep(bool                    bDoDHDL,
                                     store_dhdl, dE_ + fep->lambda_start_n, time);
         }
     }
-
     if (conservedEnergyTracker_)
     {
         conservedEnergyTracker_->addPoint(
